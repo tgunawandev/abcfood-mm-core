@@ -213,12 +213,15 @@ async def validate_jwt(token: str, settings: Settings | None = None) -> UserCont
 def verify_slash_command_token(token: str, settings: Settings | None = None) -> bool:
     """Verify Mattermost slash command token.
 
+    Supports multiple tokens (comma-separated) since each slash command
+    in Mattermost gets its own unique token.
+
     Args:
         token: Token from slash command payload
         settings: Optional settings instance
 
     Returns:
-        True if token is valid
+        True if token matches any configured token
     """
     if settings is None:
         settings = get_settings()
@@ -229,7 +232,14 @@ def verify_slash_command_token(token: str, settings: Settings | None = None) -> 
 
     import hmac
 
-    return hmac.compare_digest(token, settings.mm_slash_token)
+    # Support multiple tokens (comma-separated)
+    valid_tokens = [t.strip() for t in settings.mm_slash_token.split(",") if t.strip()]
+
+    for valid_token in valid_tokens:
+        if hmac.compare_digest(token, valid_token):
+            return True
+
+    return False
 
 
 def create_test_token(
