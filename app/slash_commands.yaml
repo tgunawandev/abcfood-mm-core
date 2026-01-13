@@ -1,0 +1,166 @@
+# Slash Command Configuration
+# Defines commands, permissions, and routing
+
+commands:
+  # Authentik access management (renamed from /access)
+  /authentik:
+    description: "Manage Authentik access and view user info"
+    icon_emoji: "🔐"
+    color: "#fd4b2d"
+    enabled: true
+    permissions:
+      teams: ["abcfood"]  # Available to all abcfood team members
+      roles: null  # No role restriction
+      channels: null  # Available in any channel
+    subcommands:
+      - trigger: "whoami"
+        description: "Get your Authentik user info and groups"
+        example: "/authentik whoami"
+        handler: "authentik.whoami"
+
+      - trigger: "user"
+        description: "Get user details by username/email"
+        example: "/authentik user tgunawan"
+        handler: "authentik.get_user"
+        params:
+          - name: "username"
+            required: true
+
+      - trigger: "groups"
+        description: "List all Authentik groups"
+        example: "/authentik groups"
+        handler: "authentik.list_groups"
+
+      - trigger: "help"
+        description: "Show Authentik command help"
+        example: "/authentik help"
+        handler: "authentik.help"
+
+  # Odoo 16 ERP operations
+  /erp:
+    description: "Odoo 16 ERP operations (invoices, sales, pending)"
+    icon_emoji: "📊"
+    color: "#3498db"
+    enabled: true
+    permissions:
+      teams: ["abcfood", "tln", "ieg", "tmi"]
+      roles: ["analyst", "manager", "admin"]
+      channels: null
+    default_db: "tln_db"
+    allowed_dbs: ["tln_db", "ieg_db", "tmi_db"]
+    subcommands:
+      - trigger: "invoice"
+        description: "Get invoice details"
+        example: "/erp invoice INV/2026/001 tln_db"
+        handler: "erp.get_invoice"
+        params:
+          - name: "invoice_id"
+            required: true
+          - name: "database"
+            required: false
+            default: "tln_db"
+
+      - trigger: "sales"
+        description: "Get sales metrics"
+        example: "/erp sales today tln_db"
+        handler: "erp.get_sales"
+        params:
+          - name: "period"
+            required: false
+            default: "today"
+            choices: ["today", "mtd", "ytd"]
+          - name: "database"
+            required: false
+
+      - trigger: "pending"
+        description: "List pending approvals"
+        example: "/erp pending tln_db"
+        handler: "erp.get_pending"
+        params:
+          - name: "database"
+            required: false
+
+  # Odoo 13 HRIS operations
+  /hr:
+    description: "Odoo 13 HRIS operations (leave, approvals)"
+    icon_emoji: "👥"
+    color: "#9b59b6"
+    enabled: true
+    permissions:
+      teams: ["abcfood"]
+      roles: null
+      channels: null
+    default_db: "hris_db"
+    allowed_dbs: ["hris_db"]
+    subcommands:
+      - trigger: "leave"
+        description: "Leave operations"
+        example: "/hr leave status"
+        handler: "hr.leave"
+        params:
+          - name: "action"
+            required: false
+            default: "status"
+            choices: ["status", "request", "pending"]
+
+      - trigger: "pending"
+        description: "List pending HR approvals"
+        example: "/hr pending"
+        handler: "hr.get_pending"
+
+  # Frappe 15 operations
+  /frappe:
+    description: "Frappe 15 operations (CRM, orders)"
+    icon_emoji: "🎯"
+    color: "#e74c3c"
+    enabled: true
+    permissions:
+      teams: ["abcfood"]
+      roles: ["analyst", "manager", "admin"]  # Restricted
+      channels: null
+    subcommands:
+      - trigger: "crm"
+        description: "CRM operations"
+        example: "/frappe crm leads 10"
+        handler: "frappe.crm"
+
+      - trigger: "order"
+        description: "Get sales order details"
+        example: "/frappe order SO-2026-001"
+        handler: "frappe.get_order"
+        params:
+          - name: "order_id"
+            required: true
+
+  # Metabase analytics
+  /metabase:
+    description: "Metabase dashboard and question links"
+    icon_emoji: "📈"
+    color: "#509EE3"
+    enabled: true
+    permissions:
+      teams: ["abcfood"]
+      roles: null
+      channels: ["analytics", "finance", "reports"]  # Channel-restricted
+    subcommands:
+      - trigger: "dashboard"
+        description: "Get dashboard link"
+        example: "/metabase dashboard sales"
+        handler: "metabase.get_dashboard"
+        params:
+          - name: "name_or_id"
+            required: true
+
+      - trigger: "question"
+        description: "Get saved question link"
+        example: "/metabase question 42"
+        handler: "metabase.get_question"
+        params:
+          - name: "question_id"
+            required: true
+
+# Permission role mapping to Authentik groups
+authentik_role_mapping:
+  analyst: ["ak-role-analyst"]
+  manager: ["ak-role-manager", "ak-role-head"]
+  admin: ["ak-role-admin", "ak-role-sysadmin"]
