@@ -65,9 +65,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash appuser
 
-# Copy virtual environment and app from builder
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/app /app/app
+# Copy virtual environment and app from builder with correct ownership
+COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+COPY --from=builder --chown=appuser:appuser /app/app /app/app
 
 # Non-root user
 USER appuser
