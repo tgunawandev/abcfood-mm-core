@@ -49,6 +49,100 @@ Core business logic service for Mattermost command center. This service is the *
 3. **Mattermost is the UI** - User interaction only
 4. **Structured JSON only** - mm-core never formats Mattermost messages
 
+## Slash Commands (Direct Mattermost Integration)
+
+mm-core now supports direct Mattermost slash commands without going through n8n. The following commands are available in the `abcfood` team:
+
+### Available Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/erp` | Odoo 16 ERP operations | `/erp invoice 123 tln_db` |
+| `/hr` | Odoo 13 HRIS operations | `/hr leave status` |
+| `/frappe` | Frappe 15 operations | `/frappe crm leads 10` |
+| `/metabase` | Metabase dashboard links | `/metabase dashboard sales` |
+| `/access` | Authentik access requests | `/access request erp` |
+
+### Testing Slash Commands
+
+#### 1. Via Mattermost (Production)
+Type any slash command in a channel or DM:
+```
+/erp help
+/hr leave status
+/metabase dashboard 1
+```
+
+#### 2. Via curl (Development/Testing)
+```bash
+# Test /erp command
+curl -X POST https://mm-core.abcfood.app/api/v1/slash/command \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "command=/erp" \
+  -d "text=help" \
+  -d "user_id=test123" \
+  -d "channel_id=chan123" \
+  -d "token=YOUR_SLASH_TOKEN"
+
+# Test /hr command
+curl -X POST https://mm-core.abcfood.app/api/v1/slash/command \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "command=/hr" \
+  -d "text=leave status" \
+  -d "user_id=test123" \
+  -d "channel_id=chan123" \
+  -d "token=YOUR_SLASH_TOKEN"
+```
+
+### Command Reference
+
+#### /erp (Odoo 16 ERP)
+```
+/erp help                    - Show help
+/erp invoice <id> [db]       - Get invoice details
+/erp pending [db]            - List pending approvals
+/erp sales [today|mtd] [db]  - Get sales metrics
+
+Databases: tln_db, ieg_db, tmi_db
+Default database: tln_db
+```
+
+#### /hr (Odoo 13 HRIS)
+```
+/hr help            - Show help
+/hr leave status    - Check your leave balance
+/hr leave pending   - List pending leave requests
+/hr pending         - List all pending HR approvals
+```
+
+#### /frappe (Frappe 15)
+```
+/frappe help                     - Show help
+/frappe crm leads [limit]        - List CRM leads (default: 5)
+/frappe crm customer <name>      - Get customer details
+/frappe order <id>               - Get sales order details
+/frappe doc <doctype> <name>     - Get any Frappe document
+```
+
+#### /metabase (Analytics)
+```
+/metabase help                   - Show help
+/metabase dashboard <name|id>    - Get dashboard link (shared in channel)
+/metabase question <id>          - Get saved question link
+/metabase search <query>         - Search for dashboards
+```
+
+#### /access (Authentik)
+```
+/access help              - Show help
+/access request <app>     - Request access to an app
+/access status            - Check your access status
+
+Available apps: erp, hris, metabase, frappe
+```
+
+---
+
 ## API Endpoints
 
 ### Health
@@ -231,7 +325,96 @@ This service does NOT handle:
 - Workflow branching (n8n)
 - Mattermost message formatting (n8n)
 
+## Authentication & Authorization
+
+### Dual Authentication
+
+mm-core supports two authentication methods:
+
+| Method | Use Case | Header |
+|--------|----------|--------|
+| API Key | n8n, internal services | `X-API-Key: <api-key>` |
+| JWT (OAuth2) | User sessions via Authentik | `Authorization: Bearer <jwt>` |
+
+### Authentik Integration
+
+mm-core integrates with Authentik for OAuth2/JWT authentication:
+
+- **Issuer**: `https://auth.abcfood.app`
+- **JWKS URL**: `https://auth.abcfood.app/application/o/mm-core/jwks/`
+- **OAuth2 Application**: `mm-core`
+
+### User Groups & Roles
+
+Authentik groups are mapped to mm-core permissions:
+
+| Group Pattern | Description | Example |
+|---------------|-------------|---------|
+| `ak-bu-*` | Business unit | `ak-bu-tln`, `ak-bu-ieg` |
+| `ak-role-*` | Role | `ak-role-manager`, `ak-role-analyst` |
+| `ak-dept-*` | Department | `ak-dept-finance`, `ak-dept-ops` |
+
+### Access Control by Command
+
+| Command | Required Role | Notes |
+|---------|---------------|-------|
+| `/erp` | Any authenticated user | Filtered by business unit |
+| `/hr` | Any authenticated user | Personal data only |
+| `/frappe` | `ak-role-analyst` or higher | |
+| `/metabase` | Any authenticated user | |
+| `/access` | Any authenticated user | Self-service access requests |
+
+### Slash Command Token Verification
+
+Each slash command in Mattermost has a unique token. mm-core verifies incoming requests:
+
+```bash
+# Tokens configured in MM_SLASH_TOKEN (comma-separated)
+MM_SLASH_TOKEN=token1,token2,token3,token4,token5
+```
+
+---
+
+## Deployment
+
+### Production Environment
+
+| Component | URL |
+|-----------|-----|
+| **mm-core API** | https://mm-core.abcfood.app |
+| **Mattermost** | https://mm.abcfood.app |
+| **Authentik** | https://auth.abcfood.app |
+| **Metabase** | https://mb.abcfood.app |
+
+### Docker Image
+
+```bash
+# Pull from GitHub Container Registry (public)
+docker pull ghcr.io/tgunawandev/abcfood-mm-core:latest
+
+# Run with environment variables
+docker run -d \
+  --name mm-core \
+  -p 8000:8000 \
+  -e API_KEY=your-api-key \
+  -e PG_HOST=your-pg-host \
+  -e PG_PASSWORD=your-pg-password \
+  ghcr.io/tgunawandev/abcfood-mm-core:latest
+```
+
+### Verify Deployment
+
+```bash
+# Health check
+curl https://mm-core.abcfood.app/api/v1/health
+
+# API docs
+open https://mm-core.abcfood.app/docs
+```
+
+---
+
 ## Related Projects
 
-- `kodemeio-platform-ops/apps/airflow/` - Production deployment configs
+- `kodemeio-platform-ops/apps/mm-core/` - Production deployment configs (Dokploy)
 - `abcfood-airflow-etl/` - ETL jobs that sync data to ClickHouse
