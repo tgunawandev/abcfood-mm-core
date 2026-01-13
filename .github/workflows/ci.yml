@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.0
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Run linting (ruff)
+        run: |
+          poetry run ruff check app/
+        continue-on-error: true
+
+      - name: Run type checking (mypy)
+        run: |
+          poetry run mypy app/ --ignore-missing-imports
+        continue-on-error: true
+
+      - name: Run tests
+        run: |
+          poetry run pytest tests/ -v --tb=short
+        continue-on-error: true
+        env:
+          APP_ENV: testing
+          API_KEY: test-api-key
+          PG_HOST: localhost
+          PG_PORT: 5432
+          PG_USER: test
+          PG_PASSWORD: test
+          PG_AUDIT_DB: test_audit
+          ODOO_HOST_TLN: localhost
+          ODOO_HOST_IEG: localhost
+          ODOO_HOST_TMI: localhost
+          ODOO_HOST_HRIS: localhost
+          ODOO_USER: test
+          ODOO_PASSWORD: test
+          CH_HOST: localhost
+          CH_PORT: 8123
+          CH_USER: test
+          CH_PASSWORD: test

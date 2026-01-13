@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  mm-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: abcfood-mm-core
+    ports:
+      - "8000:8000"
+    environment:
+      # Application
+      APP_NAME: abcfood-mm-core
+      APP_ENV: development
+      DEBUG: "true"
+      API_KEY: ${API_KEY:-dev-api-key-change-in-production}
+
+      # PostgreSQL (Odoo DBs + Audit Logs)
+      PG_HOST: ${PG_HOST:-116.203.191.172}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_AUDIT_DB: ${PG_AUDIT_DB:-mm_audit}
+
+      # Odoo XML-RPC
+      ODOO_HOST: ${ODOO_HOST:-116.203.191.172}
+      ODOO_PORT: ${ODOO_PORT:-8069}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_PASSWORD: ${ODOO_PASSWORD}
+
+      # ClickHouse (Analytics)
+      CH_HOST: ${CH_HOST:-138.199.213.219}
+      CH_PORT: ${CH_PORT:-8123}
+      CH_USER: ${CH_USER:-clickhouse}
+      CH_PASSWORD: ${CH_PASSWORD}
+
+      # Mattermost (Optional)
+      MM_WEBHOOK_SECRET: ${MM_WEBHOOK_SECRET:-}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - mm-core-network
+
+networks:
+  mm-core-network:
+    driver: bridge
