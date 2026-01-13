@@ -76,11 +76,20 @@ async def handle_slash_command(
     """
     # Verify slash command token (REQUIRED in production)
     if settings.mm_slash_token:
+        # DEBUG: Log received token
+        logger.info(
+            "slash_token_received",
+            command=command,
+            user_id=user_id,
+            token_received=repr(token),
+            token_length=len(token),
+        )
         if not verify_slash_command_token(token, settings):
             logger.warning(
                 "slash_token_invalid",
                 command=command,
                 user_id=user_id,
+                token_received=repr(token),
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
